@@ -1,0 +1,111 @@
+{
+    "design" : {
+        "name" : "<DESIGN>",
+        "clk" : "clk_cki",
+        "rst" : "rst_rbi",
+        "cpath" : "100ps",
+        "nclk" : 1,
+        "nshares" : 1,
+        "corner" : "max",
+        "sources" : {
+            "rtl" : ["src/${design:name}.v"],
+            "zero" : ["net/${design:name}.v"],
+            "delta" : ["net/${design:name}.v"],
+            "fanout" : ["net/${design:name}.v"],
+            "gln" : ["net/${design:name}-${library:id}.v"],
+            "par" : ["par/${design:name}-${library:id}.v"]
+        }
+    },
+    "analysis" : {
+        "portmap" : "sca/${design:name}.iox",
+        "batchsize" : null
+    },
+    "test" : {
+        "id": "${design:name}",
+        "ivbits": 0,
+        "ivector": "IV",
+        "ivfile": "tb/${test:id}.iv",
+        "keybits": 0,
+        "keyfile": "tb/${test:id}.key",
+        "kvector": "KV",
+        "ovector": "OV",
+        "ovbits" : 0,
+        "rndbits": 0,
+        "rndfile": "tb/${test:id}.rnd",
+        "rvector": "RV",
+        "tvector": "TGT",
+        "tgtbits": "${test:ovbits}",
+        "target": "${test:ovector}",
+        "tbfile": "tb/${test:id}_tb.v",
+        "tbmodule": "${design:name}_tb",
+        "trigger": "TR"
+    },
+    "simulation" : { 
+        "tclk" : 1,
+        "precision" : "1ps",
+        "nframes" : 10,
+        "sdf" : {
+            "corner": "${design:corner}",
+            "strip": "/${test:tbmodule}/dut",
+            "timing": {
+                "delta"     : "net/${design:corner}/${design:name}-delta.sdf",
+                "fanout"    : "net/${design:corner}/${design:name}-fanout.sdf",
+                "gln"       : "net/${design:corner}/${design:name}.sdf",
+                "par"       : "par/${design:corner}/${design:name}.sdf",
+                "rtl"       : ""
+            }
+        }
+    },
+    "vsim" : {
+        "vcd" : {
+            "rtl" : "questasim/rtl/${test:id}-${simulation:nframes}.vcd",
+            "gln" : "questasim/gln/${test:id}-${simulation:nframes}-${simulation:precision}.vcd",
+            "par" : "questasim/par/${test:id}-${simulation:nframes}-${simulation:precision}.vcd",
+            "zero" : "questasim/zero/${test:id}-${simulation:nframes}-${simulation:precision}.vcd",
+            "delta" : "questasim/delta/${test:id}-${simulation:nframes}.vcd",
+            "fanout" : "questasim/fanout/${test:id}-${simulation:nframes}-${simulation:precision}.vcd"
+        }, 
+        "tcl" : {
+            "rtl" : "questasim/rtl/${test:id}-${simulation:nframes}.tcl",
+            "gln" : "questasim/gln/${test:id}-${simulation:nframes}-${simulation:precision}.tcl",
+            "par" : "questasim/par/${test:id}-${simulation:nframes}-${simulation:precision}.tcl",
+            "zero" : "questasim/zero/${test:id}-${simulation:nframes}-${simulation:precision}.tcl",
+            "delta" : "questasim/delta/${test:id}-${simulation:nframes}.tcl",
+            "fanout" : "questasim/fanout/${test:id}-${simulation:nframes}-${simulation:precision}.tcl"
+        } 
+    },
+    "pt_shell" : {
+        "out" : {
+            "gln" : "primetime/gln/${test:id}-${simulation:nframes}-${simulation:precision}.out",
+            "par" : "primetime/par/${test:id}-${simulation:nframes}-${simulation:precision}.out",
+            "zero" : "primetime/zero/${test:id}-${simulation:nframes}-${simulation:precision}.out",
+            "delta" : "primetime/delta/${test:id}-${simulation:nframes}.out",
+            "fanout" : "primetime/fanout/${test:id}-${simulation:nframes}-${simulation:precision}.out"
+        } ,
+        "tcl" : {
+            "gln" : "primetime/gln/${test:id}-${simulation:nframes}-${simulation:precision}",
+            "par" : "primetime/par/${test:id}-${simulation:nframes}-${simulation:precision}",
+            "zero" : "primetime/zero/${test:id}-${simulation:nframes}-${simulation:precision}",
+            "delta" : "primetime/delta/${test:id}-${simulation:nframes}",
+            "fanout" : "primetime/fanout/${test:id}-${simulation:nframes}-${simulation:precision}"
+        } 
+    },
+    "library" : {
+        "id": "nan45",
+        "name": "NangateOpenCellLibrary",
+        "verilog" : ["/esat/koninck1/scratch/dsijacic/design/NangateOpenCellLibrary_PDKv1_3_v2010_12/Front_End/Verilog/NangateOpenCellLibrary.v"],
+        "vhdl" : [""],
+        "ccs" : {
+            "lib" : {
+                "max" : "/esat/koninck1/scratch/dsijacic/design/NangateOpenCellLibrary_PDKv1_3_v2010_12/Front_End/Liberty/CCS/NangateOpenCellLibrary_slow_ccs.lib",
+                "min" : "ccs.lib",
+                "typ" : "ccs.lib"
+            },
+            "db" : {
+                "max" : "/esat/koninck1/scratch/dsijacic/design/NangateOpenCellLibrary_PDKv1_3_v2010_12/Front_End/Liberty/CCS/NangateOpenCellLibrary_slow_ccs.db",
+                "min" : "ccs.lib",
+                "typ" : "ccs.lib"
+            }
+        }
+    }
+}
