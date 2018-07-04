@@ -23,6 +23,7 @@ from os.path import isfile
 from os.path import split as osplit
 
 from json import load, dump
+
 class LibraryManager(object):
 
     """ Manages library resources in a centralized manner. """
@@ -58,24 +59,23 @@ class LibraryManager(object):
                 'list_lib',
                 'List all handles and locations for the available libraries..',
                 [
-                    'handle', {
-                        'help' : 'CASCADE handle for the libary.'
-                    },
                 ]
             ),
         ]
-    
-    def process(self, command, args):
-        handle = args['handle']
-        libcfg = args['libcfg']
 
+    def load(self):
         if not isfile(self.libDataFile):
             raise IOError('Can not find default library storage @ {}!'.format(self.libDataFile))
 
         with open(self.libDataFile, 'r') as f:
             self.libraries = load(f)
 
+    def process(self, command, args):
+
         if command == 'add_lib':
+            print('Adding ...')
+            handle = args['handle']
+            libcfg = args['libcfg']
             if handle in self.libraries:
                 ack = input('Library with handle {} already exists in CASCADE. Overwrite? [yes/no] '.format(handle))
                 if ack != 'yes':
@@ -83,16 +83,17 @@ class LibraryManager(object):
                     return None
 
             if not isfile(libcfg):
-                raise IOError('Can not find the library configuration file at {}'.format(libcfgs))
+                raise IOError('Can not find the library configuration file at {}'.format(libcfg))
             with open(libcfg, 'r') as f:
                 newlib = load(f)
             newlib['TOP'] = osplit(libcfg)[0]
 
-            print('TODO: Control/Enforcing which fields are necessary.')
+            print('TODO: Control/Enforce which fields are required/necessary.')
 
             self.libraries[handle] = newlib
 
         elif command == 'remove_lib':
+            handle = args['handle']
             if handle in self.libraries:
                 del self.libraries[handle]
                 print('Library with handle {} removed from CASCADE.'.format(handle))
@@ -102,9 +103,12 @@ class LibraryManager(object):
         elif command == 'list_lib':
             i = 0
             print('{:>3s}. | {:>10s} | {:s}'.format('#', 'Handle', 'Path'))
-            for handle, lib in sefl.libraries.items():
+            print('-' * 80)
+            for handle, lib in self.libraries.items():
                 i += 1
-                print('{:>3s}. | {:>10s} | {:s}'.format(i, handle, lib[top]))
+                print('{:>3d}. | {:>10s} | {:s}'.format(i, handle, lib['TOP']))
+            print('-' * 80)
+            print('Total of {} libraries found.'.format(len(self.libraries)))
         else:
             raise Exception('Something went wrong.')
 

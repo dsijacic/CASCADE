@@ -177,8 +177,6 @@ class SessionManager(object):
         if not isdir(join(self.top, 'src')):
             makedirs(join(self.top, 'src'), 0o700)
 
-
-
     def getSession(self):
         """ probaly could have been implemented using os.path.relpath """
         relativePath = ['.']
@@ -199,6 +197,9 @@ class SessionManager(object):
         relativePath = join(relativePath, self.sessionFile)
         return relativePath
 
+    def getSessionRoot(self):
+        return self.cascadeSession['TOP']
+        
     def loadSession(self):
         # todo: check that parameters are not repeated in files
         targetSession = self.getSession()
@@ -206,11 +207,9 @@ class SessionManager(object):
             with open(targetSession, 'r') as sf:
                 self.cascadeSession = load(sf)
             self.parameterfiles = {}
-            # self.parameters = {}
             for cfg in self.cascadeSession['CFG_FILES']:
                 try:
                     with open(cfg, 'r') as c:
-                        # self.parameters.update(load(c))
                         self.parameterfiles[cfg] = load(c)
                 except IOError:
                     print('Warning: Configuration file not found!\n -> {}'.format(realpath(cfg)))
@@ -223,6 +222,13 @@ class SessionManager(object):
             return False
 
     def dumpSession(self):
+
+        # redistribute values to files
+        for param, value in self.parameters.items():
+            for file, params in self.parameterfiles.items():
+                if param in params:
+                    self.parameterfiles[file][param] = value
+
         targetSession = self.getSession()
         for cfg in self.cascadeSession['CFG_FILES']:
             try:
@@ -300,13 +306,9 @@ class SessionManager(object):
                     value = self.getFromJson(match[1:], startParam)
                     target = target.replace(match, str(value))
                     continue
-
-
-
         return target
 
     def getParam(self, param):
-        # print('Using session parameter:', param)
         startParam = param
         target = self.getFromJson(param, startParam)
         if type(target) != list:
@@ -378,3 +380,9 @@ class SessionManager(object):
             print('Warning: Parameter with handle "{}" references the updated parameter "{}".'.format(ref, handle))
         if len(refHandles):
             print('Warning: Run the handler again for this update to take place!')
+
+    def getLibraryData(self, libraries):
+        handle = self.parameters['lib_id']
+        if handle not in libraries:
+            raise HandlerError('Can not find library with handle {}.'.format(handle))
+        self.parameters['lib'] = libraries[self.parameters['lib_id']]

@@ -1,1 +1,45 @@
-{}
+{
+    "nan45": {
+        "TOP": "/esat/herkenrode1/scratch/dsijacic/StdCell/NangateOpenCellLibrary_PDKv1_3_v2010_12",
+        "backend": {
+            "gds_files": [
+                "Back_End/gds/NangateOpenCellLibrary.gds"
+            ],
+            "lef_files": [
+                "Back_End/lef/NangateOpenCellLibrary.lef",
+                "Back_End/lef/NangateOpenCellLibrary.tech.lef",
+                "Back_End/lef/NangateOpenCellLibrary.macro.lef"
+            ]
+        },
+        "corners": [
+            "min",
+            "typ",
+            "max"
+        ],
+        "functional": {
+            "verilog": [
+                "Front_End/Verilog/NangateOpenCellLibrary.v"
+            ]
+        },
+        "handle": "nan45",
+        "liberty": {
+            "ccs": {
+                "db": {
+                    "max": "Front_End/Liberty/CCS/NangateOpenCellLibrary_slow_ccs.db",
+                    "min": "Front_End/Liberty/CCS/NangateOpenCellLibrary_fast_ccs.db",
+                    "typ": "Front_End/Liberty/CCS/NangateOpenCellLibrary_typical_ccs.db"
+                },
+                "lib": {
+                    "max": "Front_End/Liberty/CCS/NangateOpenCellLibrary_slow_ccs.lib",
+                    "min": "Front_End/Liberty/CCS/NangateOpenCellLibrary_fast_ccs.lib",
+                    "typ": "Front_End/Liberty/CCS/NangateOpenCellLibrary_typical_ccs.lib"
+                }
+            }
+        },
+        "name": "NangateOpenCellLibrary",
+        "parparam": "par.json",
+        "transistors": [
+            "PredictiveModels.l"
+        ]
+    }
+}
