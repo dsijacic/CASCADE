@@ -43,7 +43,7 @@ for cmd in sesmgr.commands: cas.addCommand(*cmd)
 for cmd in libmgr.commands: cas.addCommand(*cmd)
 
 libmgr.load()
-print(ppDict(libmgr.libraries))
+# print(ppDict(libmgr.libraries))
 
 Factory.create(cas)
 cas.parse(argv)

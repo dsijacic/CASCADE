@@ -12,46 +12,31 @@
 #>                              ALL RIGHTS RESERVED                             
 #>        The entire notice above must be reproduced on all authorized copies.  
 #> =============================================================================
-#> File name     : factory.py                                                   
-#> Time created  : Sat Mar 24 16:41:58 2018                                     
+#> File name     : devurandgen.py                                                
+#> Time created  : Sat Mar 24 11:59:39 2018                                     
 #> Author        : dsijacic (dsijacic@esat.kuleuven.be)                         
 #> Details       :                                                              
 #>               :                                                              
 #> =============================================================================
 
+from generators.lsimgen import LogicSimGenerator
 
-from generators                 import *
-from handlers                   import *
+class DevURandGen(LogicSimGenerator):
 
-class FactoryError(Exception):
-    """..."""
+    def __init__(self):
+        super(DevURandGen, self).__init__('devu')
 
-class Factory():
+    def getData(self, nBits, initValue, nFrames):
 
-    allHandlers = []
+        devr = open('/dev/urandom', 'rb')
+        
+        nbytes = nBits // 8
+        if nBits % 8: nbytes += 1
 
-    def create(cli):
-        Factory.allHandlers.append(
-            QuestaSim()
-        )
-        Factory.allHandlers.append(
-            TestbenchGenerator(
-                EDPCGen(), 
-                DevRandGen(), 
-                DevURandGen(),
-                Fix2AllGen()
-            )
-        )
-        Factory.allHandlers.append(
-            DcShell()
-        )
-        ...
+        rawdata = devr.read(nbytes * (1 + nFrames))
+        devr.close()
 
-        for h in Factory.allHandlers:
-            cli.addCommand(h.handle, h.help, h.args)
+        data = [rawdata[x:x+nbytes] for x in range(0, len(rawdata), nbytes)]
+        data = [int.from_bytes(d, byteorder='big') for d in data]
 
-    def get(handle):
-        for h in Factory.allHandlers:
-            if handle == h.handle:
-                return h
-        raise FactoryError('Factory received an unkown handle "{}".'.format(handle))
+        return data, nbytes
