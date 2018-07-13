@@ -32,11 +32,12 @@ import re
 
 class Port(object):
 
-    def __init__(self, name, width, start, end):
+    def __init__(self, name, width, start, end, direction):
       self.name = name
       self.width = width
       self.start = start
       self.end = end
+      self.direction = direction
 
 class TestbenchGenerator(Handler):
     """ TestbenchGenerator assumes that the top module is written in Verilog,
@@ -49,6 +50,8 @@ class TestbenchGenerator(Handler):
     ...
     endmodule
     """
+
+    PORT_TYPES = ['clk', 'rst', 'exc', 'fin', 'fot', 'key', 'rnd']
 
     def __init__(self, *generators):
         self.handle = 'tbgen'
@@ -87,10 +90,10 @@ class TestbenchGenerator(Handler):
             '-ivfile', ['test:ivfile'], {
                 'help': 'Output file containing  input vectors.',
             },
-            '-kvfile', ['test:keyfile'], {
+            '-kvfile', ['test:kvfile'], {
                 'help': 'Key file. Set value to ',
             },
-            '-rvfile', ['test:rndfile'], {
+            '-rvfile', ['test:rvfile'], {
                 'help': 'External randomness input.',
             },
             '-ivbits', ['test:ivbits'], {
@@ -101,11 +104,11 @@ class TestbenchGenerator(Handler):
                 'help': 'Bits of the output vector.',
                 'type': int
             },
-            '-kvbits', ['test:keybits'], {
+            '-kvbits', ['test:kvbits'], {
                 'help': 'Key file. Set value to ',
                 'type': int
             },
-            '-rvbits', ['test:rndbits'], {
+            '-rvbits', ['test:rvbits'], {
                 'help': 'External randomness input.',
                 'type': int
             },
@@ -119,10 +122,10 @@ class TestbenchGenerator(Handler):
             '-ivector', ['test:ivector'], {
                 'help': 'Input vector name in the TB.',
             },
-            '-kvector', ['test:keybits'], {
+            '-kvector', ['test:kvector'], {
                 'help': 'Output vector name in the TB.',
             },
-            '-rvector', ['test:rndbits'], {
+            '-rvector', ['test:rvector'], {
                 'help': 'Random vector name in the TB.',
             },
             '-tvector', ['test:tvector'], {
@@ -144,20 +147,27 @@ class TestbenchGenerator(Handler):
             },
             '-rst_level', ['design:rst_level'], {
                 'help' : 'Design reset signal.',
-                'default' : 0,
-                'type' : int
+                'default' : 0
             },
             '-design', ['design:name'], {
                 'help': 'Design name.',
             },
             '-bs', ['analysis:batchsize'], {
                 'help': 'Simulation/Analysis batch size. If None (null) everything is processed in one batch.',
+                # 'type' : int
             },
             '-sdfstrip', ['simulation:sdf:strip'], {
                 'help': 'Path to your design (strip testbench).'
             },
             '-nshares', ['design:nshares'], {
-                'help': 'Number of shares.'
+                'help': 'Number of shares.',
+                # 'type' : int
+            },
+            '-rstdelay', ['test:rstdelay'], {
+                'help': 'Keep circuit in reset state.',
+            },
+            '-initdelay', ['test:initdelay'], {
+                'help': 'Initial delay not including the reset.',
             },
         ]
         super(TestbenchGenerator, self).__init__(self.handle, self.help, self.args, generators)
@@ -168,18 +178,16 @@ class TestbenchGenerator(Handler):
         self.ports = {}
         self.root = root
         self.parseVerilog()
-        # self.createInputVectors()
-        # self.createVerilogTestbench()
-        # self.createIOXFile()
+        self.createInputVectors()
+        self.createVerilogTestbench()
+        self.createIOXFile()
 
         return 'Completed testbench generation with id = {}.'.format(self.id), self.update
 
     def parseVerilog(self):
 
-
         bus_re = re.compile('\[(.*)\]')
-        #iox_re = re.compile('//[IOECR]=((\d*):(\d*))|(\d*)')
-        
+
         src = join(self.root, self.src[0])
         print('Info: Parsing file {} for top source module {}.'.format(src, self.design))
 
@@ -190,6 +198,10 @@ class TestbenchGenerator(Handler):
         print('-' * 80)
 
         sfp = open(src, 'r')
+
+        # start parsing the IO port mapping
+        self.ports = {ptype : [] for ptype in TestbenchGenerator.PORT_TYPES}
+
         for line in sfp:
             line = line.replace(';', '').strip()
             if '/*' in line or '*/' in line:    raise HandlerError('Can not parse "{}". Only // comments are allowed!'.format(src))
@@ -199,19 +211,10 @@ class TestbenchGenerator(Handler):
             if line[0] == 'module':
                 if line[1] != self.design: raise HandlerError('Wrong design "{}" found in source file "{}". Missmatch with top design "{}"\nMake sure that the top design file is the first in the list of RTL sources.'.format(line[1], src, self.design))
 
-            # start parsing the IO port mapping
-            self.ports = {
-              'clk' : [],
-              'rst' : [],
-              'exc' : [],
-              'fin' : [],
-              'fot' : [],
-              'key' : [],
-              'rnd' : [],
-            }
-
             port_spec = 0
+            port_dir = ''
             if line[0] in ['input', 'output']:
+                port_dir = line[0]
                 if bus_re.match(line[1]):
                     port_name = line[2]
                     port_width = line[1][1:-1].split(':')
@@ -247,318 +250,288 @@ class TestbenchGenerator(Handler):
                         print('Info: Ports must be in big endian.')
 
                 print('{:16s} | {:16d} | {:5s} | {:3d} - {:3d}'.format(port_name, port_width, port_type, port_start, port_end))
-                self.ports[port_type].append(Port(port_name, port_width, port_start, port_end))
+                self.ports[port_type].append(Port(port_name, port_width, port_start, port_end, port_dir))
 
         print('-' * 80)
 
-        #     if line[0] == 'input':
-        #         iox = line[-1]
-        #         if not iox_re.match(iox):
-        #             raise HandlerError('Improperly formatted input line!\n\t{}'.format(' '.join(line)))
+        # compute bit widths
+        ivbits = sum([x.width for x in self.ports['fin']])
+        if self.ivbits != ivbits:
+            self.update['test:ivbits'] = ivbits
+            self.ivbits = ivbits
 
-        #         iox_type = iox[2]
-        #         iox_width = iox[4:]
+        ovbits = sum([x.width for x in self.ports['fot']])
+        if self.ovbits != ovbits:
+            self.update['test:ovbits'] = ovbits
+            self.ovbits = ovbits
 
-        #         if ':' in iox:
-        #             width = line[1].replace('[','').replace(']', '').split(':')
-        #             width = int(width[0]) - int(width[1]) + 1
-        #             name = line[2].replace(';', '')
-        #             position = iox_width.split(':')
-        #             position = int(position[0]) - int(position[1]) + 1
-        #             if width != position:
-        #                 raise HandlerError('Width missmatch in line: {}'.format(' '.join(line)))
-        #             position = int(iox_width.split(':')[0])
-        #             elem = (name, position, width)
-        #         else:
-        #             width = 1
-        #             name = line[1].replace(';', '')
-        #             position = int(iox_width[0])
-        #             elem = (name, position, width)
+        kvbits = sum([x.width for x in self.ports['key']])
+        if self.kvbits != kvbits:
+            self.update['test:kvbits'] = kvbits
+            self.kvbits = kvbits
 
-        #         self.vectors[iox_type].append(elem)
+        rvbits = sum([x.width for x in self.ports['rnd']])
 
-        #     if line[0] == 'output':
-        #         iox = line[-1]
-        #         if not iox_re.match(line[-1]):
-        #             raise HandlerError('Improperly formatted output line!\n\t{}'.format(' '.join(line)))
+        if self.rvbits != rvbits:
+            self.update['test:rvbits'] = rvbits
+            self.rvbits = rvbits
 
-        #         iox_type = iox[2]
-        #         iox_width = iox[4:]
+    def createInputVectors(self):
 
-        #         if ':' in iox:
-        #             width = line[1].replace('[','').replace(']', '').split(':')
-        #             width = int(width[0]) - int(width[1]) + 1
-        #             name = line[2].replace(';', '')
-        #             position = iox_width.split(':')
-        #             position = int(position[0]) - int(position[1]) + 1
-        #             if width != position:
-        #                 raise HandlerError('Width missmatch in line: {}'.format(' '.join(line)))
-        #             position = int(iox_width.split(':')[0])
-        #             elem = (name, position, width)
-        #         else:
-        #             width = 1
-        #             name = line[1].replace(';', '')
-        #             position = int(iox_width[0])
-        #             elem = (name, position, width)
+        # convert None/null to 0
+        if not self.bs:
+            self.bs = 0
 
-        #         self.vectors[iox_type].append(elem)
+        # runtime
+        if self.type == 'edpc':
+            edpcfull = 2**(2*self.ivbits) - 2**self.ivbits
+            if self.nframes > edpcfull:
+                 print('Info: Configured number of frames exceeds the EDPC sequence.')
+                 print('Info: Number of frames will be updated.')
+                 self.update['simulation:nframes'] = edpcfull
+                 self.nframes = edpcfull
+            elif self.nframes < edpcfull:
+                 print('Info: Configured number of frames {} is smaller than the EDPC sequence {}.'.format(self.nframes, edpcfull))
+                 print('Info: Full EDPC sequence is still being dumped to the file.')
+                 self.nframes = edpcfull
 
-        # # compute bit widths
-        # self.N_I_BITS = sum([elem[2] for elem in self.vectors['I']])
-        # if self.N_I_BITS != self.ivbits:
-        #     self.update['test:ivbits'] = self.N_I_BITS
-        #     self.ivbits = self.N_I_BITS
+        if self.ivbits: 
+            ivfile = join(self.root, self.ivfile)
+            self.getGenerator(self.type, self.ivbits, self.nframes, self.bs, ivfile)
 
-        # self.N_O_BITS = sum([elem[2] for elem in self.vectors['O']])
-        # if self.N_O_BITS != self.ovbits:
-        #     self.update['test:ovbits'] = self.N_O_BITS
-        #     self.ovbits = self.N_O_BITS
+        if self.kvbits: 
+            kvfile = join(self.root, self.kvfile)
+            if not isfile(kvfile):
+                self.getGenerator('devr', self.kvbits, 1, 0, kvfile)
+            else:
+                print('Info: Selected key file already exists. Refusing to overwrite.')
 
-        # if len(self.vectors['C']):
-        #     self.CLK = self.vectors['C'][0][0]
-        # else:
-        #     self.CLK = None
-        # if len(self.vectors['R']):
-        #     self.RST = self.vectors['R'][0][0]
-        # else:
-        #     self.RST = None
+        if self.rvbits: 
+            rvfile = join(self.root, self.rvfile)
+            if not isfile(rvfile):
+                self.createFile(rvfile)
+                self.getGenerator('devr', self.rvbits, self.nframes, self.bs, rvfile)
+            else:
+                print('Info: Selected radnom file already exists. Refusing to overwrite.')
 
-        # for kw, arg in sorted(self.vectors.items()):
-        #     print(kw, arg)
+    def createVerilogTestbench(self):
 
-    # def createInputVectors(self):
+        tbfile = join(self.root, self.tb)
+        ivfile = join(self.root, self.ivfile)
+        kvfile = join(self.root, self.kvfile)
+        rvfile = join(self.root, self.rvfile)
 
-    #     # runtime
-    #     if self.type == 'edpc':
-    #         edpcfull = 2**(2*self.ivbits) - 2**self.ivbits
-    #         if self.nframes > edpcfull:
-    #             print('Info: Configured number of frames exceeds the EDPC sequence.')
-    #             print('Info: Number of frames will be updated.')
-    #             self.update['simulation:nframes'] = edpcfull
-    #             self.nframes = edpcfull
-    #         elif self.nframes < edpcfull:
-    #             print('Info: Configured number of frames {} is smaller than the EDPC sequence {}.'.format(self.nframes, edpcfull))
-    #             print('Info: Full EDPC sequence is still being dumped to the file.')
-    #             self.nframes = edpcfull
+        if not self.force:
+            if isfile(tbfile):
+                answer = input('Testbench file already exists. Do you want to overwrite it? [yes/no] ')
+                if answer != 'yes':
+                    print('Skipped testbench file creation.')
+                    return None
 
-    #     if self.ivbits: 
-    #         self.createFile(self.ivfile)
-    #         self.getGenerator(self.type, self.ivbits, self.nframes, self.bs, self.ivfile)
-    #     if self.kvbits: 
-    #         if not isfile(self.kvfile):
-    #             self.createFile(self.kvfile)
-    #             self.getGenerator('devr', self.kvbits, 1, self.kvfile)
-    #         else:
-    #             print('Info: Selected key file already exists. Refusing to overwrite.')
-    #     if self.rvbits: 
-    #         if not isfile(self.rvfile):
-    #             self.createFile(self.rvfile)
-    #             self.getGenerator('devr', self.kvbits, self.nframes, self.bs, self.rvfile)
-    #         else:
-    #             print('Info: Selected randomness file already exists. Refusing to overwrite.')
+        self.createFile(tbfile, '//')
 
-    # def createVerilogTestbench(self):
-    #     self.tb = join(self.root, self.tb)
-    #     if not self.force:
-    #         if isfile(self.tb):
-    #             answer = input('Testbench file already exists. Do you want to overwrite it? [yes/no] ')
-    #             if answer != 'yes':
-    #                 print('Skipped testbench file creation.')
-    #                 return None
+        tb = open(tbfile, 'a')
 
-    #     self.createFile(self.tb, '//')
+        # module and parameters
+        tb.write('\n')
+        if self.ivbits: tb.write('`define IVFILE "{}"\n'.format(ivfile))
+        if self.kvbits: tb.write('`define KVFILE "{}"\n'.format(kvfile))
+        if self.rvbits: tb.write('`define RVFILE "{}"\n'.format(rvfile))
+        tb.write('\n')
+        tb.write('module {};\n'.format(self.tbmodule))
+        tb.write('\n')
+        tb.write('parameter TCLK = -1;\nparameter HTCLK = TCLK/2;\n')
+        tb.write('parameter PERIOD = -1;\nparameter HPERIOD = PERIOD/2;\n')
+        tb.write('parameter N_FRAMES = -1;\n')
+        tb.write('parameter RST_DELAY = -1;\n')
+        tb.write('parameter INIT_DELAY = -1;\n')
+        tb.write('integer FRAME_CNT  = 0;\n')
+        tb.write('integer err;\n')
+        tb.write('\n')
+        if self.ivbits: tb.write('integer ivfile;\n')
+        if self.kvbits: tb.write('integer kvfile;\n')
+        if self.rvbits: tb.write('integer rvfile;\n')
 
-    #     tb = open(self.tb, 'a')
+        # simulation signals
+        tb.write('\n')
+        tb.write('reg  SCLK; // simulation clock\n')
+        tb.write('reg  {}; // simulation trigger\n'.format(self.tr))
+        if self.ivbits == 1:
+            tb.write('reg  {};\n'.format(self.ivector))
+        else:
+            tb.write('reg  [{}:0] {};\n'.format(self.ivbits - 1, self.ivector))
+        if self.ovbits == 1:
+            tb.write('wire {};\n'.format(self.ovector))
+        else:
+            tb.write('wire [{}:0] {};\n'.format(self.ovbits - 1, self.ovector))
+        if self.rvbits:
+            if self.rvbits == 1:
+                tb.write('reg {};\n'.format(self.rvector))
+            else:
+                tb.write('reg [{}:0] {};\n'.format(self.rvbits - 1, self.rvector))
+        if self.kvbits:
+            if self.kvbits == 1:
+                tb.write('reg {};\n'.format(self.kvector))
+            else:
+                tb.write('reg [{}:0] {};\n'.format(self.kvbits - 1, self.kvector))
+        if self.tgtbits == 1:
+            tb.write('wire {};\n'.format(self.tvector))
+        else:
+            tb.write('wire [{}:0] {};\n'.format(self.tgtbits - 1, self.tvector))
 
-    #     # module and parameters
-    #     tb.write('// ---\n')
-    #     if self.ivbits: tb.write('`define IVFILE "{}"\n'.format(self.ivfile))
-    #     if self.kvbits: tb.write('`define KVFILE "{}"\n'.format(self.kvfile))
-    #     if self.rvbits: tb.write('`define RVFILE "{}"\n'.format(self.rvfile))
-    #     tb.write('// ---\n')
-    #     tb.write('module {};\n'.format(self.tbmodule))
-    #     tb.write('// ---\n')
-    #     tb.write('parameter TCLK = -1;\nparameter HTCLK = TCLK/2;\n')
-    #     tb.write('parameter PERIOD = -1;\nparameter HPERIOD = PERIOD/2;\n')
-    #     tb.write('parameter N_FRAMES = -1;\n')
-    #     tb.write('integer FRAME_CNT  = 0;\n')
-    #     tb.write('integer err;\n')
+        # testbench wires
+        tb.write('\n')
+        for port in [self.clk, self.rst]:
+            tb.write('reg {};\n'.format(port))
+        for port in self.ports['key'] + self.ports['exc'] + self.ports['rnd'] + self.ports['fin'] + self.ports['fot']:
+            pstr = 'wire '
+            if port.width > 1:
+                pstr += '[{}:{}] '.format(port.width-1, 0)
+            pstr += port.name + ';\n'
+            tb.write(pstr)
 
-    #     if self.ivbits: tb.write('integer ivfile;\n');
-    #     if self.kvbits: tb.write('integer kvfile;\n');
-    #     if self.rvbits: tb.write('integer rvfile;\n');
+        # instantiate module
+        tb.write('\n')
+        tb.write('{} {} (\n'.format(self.design, self.sdfstrip.split('/')[-1]))
+        ports = ''
+        if self.clk:
+            ports += '  .{}({}),\n'.format(self.clk, self.clk)
+        if self.rst:
+            ports += '  .{}({}),\n'.format(self.rst, self.rst)
+        for i in self.ports['exc'] + self.ports['key'] + self.ports['rnd'] + self.ports['fin'] + self.ports['fot']:
+            ports += '  .{}({}),\n'.format(i.name, i.name)
+        ports = ports[:-2] + '\n);\n'
+        tb.write(ports)
+
+        # wire i/o
+        tb.write('\n')
+        for vec in self.ports['key']:
+            if vec.width == self.kvbits:
+                tb.write('assign {} = {};\n'.format(vec.name, self.kvector))
+                break
+            else:
+                if vec.start == vec.end:
+                    tb.write('assign {} = {}[{}] ;\n'.format(vec.name, self.kvector, vec.start))
+                else:
+                    tb.write('assign {} = {}[{}:{}];\n'.format(vec.name, self.kvector, vec.start, vec.end))
+
+        for vec in self.ports['rnd']:
+            if vec.width == self.rvbits:
+                tb.write('assign {} = {};\n'.format(vec.name, self.rvector))
+                break
+            else:
+                if vec.start == vec.end:
+                    tb.write('assign {} = {}[{}];\n'.format(vec.name, self.rvector, vec.start))
+                else:
+                    tb.write('assign {} = {}[{}:{}];\n'.format(vec.name, self.rvector, vec.start, vec.end))
+
+        for vec in self.ports['fin']:
+            if vec.width == self.ivbits:
+                tb.write('assign {} = {};\n'.format(vec.name, self.ivector))
+                break
+            else:
+                if vec.start == vec.end:
+                    tb.write('assign {} = {}[{}];\n'.format(vec.name, self.ivector, vec.start))
+                else:
+                    tb.write('assign {} = {}[{}:{}];\n'.format(vec.name, self.ivector, vec.start, vec.end))
+
+        for vec in self.ports['fot']:
+            if vec.width == self.ovbits:
+                tb.write('assign {} = {};\n'.format(self.ovector, vec.name))
+                break
+            else:
+                if vec.start == vec.end:
+                    tb.write('assign {} [{}] = {};\n'.format(self.ovector, vec.start, vec.name))
+                else:
+                    tb.write('assign {} [{}:{}] = {};\n'.format(self.ovector, vec.start, vec.end, vec.name))
+
+
+        # target as specified in the configuration file
+        tb.write('\n')
+        tb.write('assign {} = {};\n'.format(self.tvector, self.tgt))
+
+        # driving signals
+        tb.write('\n')
+        tb.write('always #(HPERIOD) {} = ~ {};\n'.format('SCLK', 'SCLK'))
+        if self.clk:
+            tb.write('always #(HTCLK) {} = ~ {};\n'.format(self.clk, self.clk))
+
+        # initial
+        tb.write('\n')
+        tb.write('// read the initial entries\n')
+        tb.write('initial begin\n')
+        if self.ivbits: 
+            tb.write('  ivfile = $fopen(`IVFILE, "rb");\n')     
+            tb.write('  err = $fread({}, ivfile);\n'.format(self.ivector))
+        if self.kvbits: 
+            tb.write('  kvfile = $fopen(`KVFILE, "rb");\n')     
+            tb.write('  err = $fread({}, ivfile);\n'.format(self.kvector))
+        if self.rvbits: 
+            tb.write('  rvfile = $fopen(`RVFILE, "rb");\n')     
+            tb.write('  err = $fread({}, ivfile);\n'.format(self.rvector))
+
+        tb.write('\n')
+        tb.write('  SCLK = 1\'b1;\n')
+        if self.clk:
+            tb.write('  {} = 1\'b1;\n'.format(self.clk));
+
+        tb.write('  {} = 0;\n'.format(self.tr))
+
+        if self.rst:
+            if self.rst_level == 1:
+                on = '1\'b1'
+                off = '1\'b0'
+            else:
+                on = '1\'b0'
+                off = '1\'b1'
+            tb.write('  {} = {};\n'.format(self.rst, on));
+            tb.write('  #(RST_DELAY)\n');
+            tb.write('  {} = {};\n'.format(self.rst, off));
+        tb.write('  #(INIT_DELAY)\n');
+        tb.write('  {} = 1\'b1;\n'.format(self.tr))
+        tb.write('\n')
+        tb.write('end\n')
+
+        # frame counting and the termination of the testbench
+        tb.write('\n')
+        tb.write('// read all entries and finish\n')
+        tb.write('always @(posedge SCLK) begin\n')
+        tb.write('  if (FRAME_CNT >= N_FRAMES) begin\n')
+        tb.write('    {} = 0;\n'.format(self.tr))
+        tb.write('    $display("Finished %d frames for ID: %s", FRAME_CNT, "{}");\n'.format(self.id))
+        tb.write('    $finish;\n')
+        tb.write('  end\n')
+
+        tb.write('  if ({}) begin \n'.format(self.tr))
+        tb.write('    FRAME_CNT = FRAME_CNT + 1;\n')
+        if self.ivbits: 
+            tb.write('    err = $fread({}, ivfile);\n'.format(self.ivector))
+        if self.rvbits: 
+            tb.write('    err = $fread({}, rvfile);\n'.format(self.rvector))
         
+        tb.write('  end\n')
+        tb.write('end\n')
 
-    #     # simulation signals
-    #     tb.write('// ---\n')
-    #     tb.write('reg  SCLK; // simulation clock\n')
-    #     tb.write('reg  {}; // simulation trigger\n'.format(self.tr))
-    #     if self.ivbits == 1:
-    #         tb.write('reg  {};\n'.format(self.ivector))
-    #     else:
-    #         tb.write('reg  [{}:0] {};\n'.format(self.ivbits - 1, self.ivector))
-    #     if self.ovbits == 1:
-    #         tb.write('wire {};\n'.format(self.ovector))
-    #     else:
-    #         tb.write('wire [{}:0] {};\n'.format(self.ovbits - 1, self.ovector))
-    #     if self.tgtbits == 1:
-    #         tb.write('wire {};\n'.format(self.ivector))
-    #     else:
-    #         tb.write('wire [{}:0] {};\n'.format(self.tgtbits - 1, self.tvector))
+        # wrap up
+        tb.write('\n')
+        tb.write('endmodule\n')
+        tb.close()
 
-    #     # self.N_OV_BITS = self.N_O_BITS // self.nshares
-    #     # if self.N_O_BITS % self.nshares:
-    #     #     raise HandlerError('Incompatible number of shares {} for {} output bits.'.format(self.nshares, self.N_O_BITS))
-    #     # if self.N_OV_BITS == 1:
-    #     #     tb.write('wire {};\n'.format(self.ovector))
-    #     # else:
-    #     #     tb.write('wire [{}:0] {};\n'.format(self.N_OV_BITS - 1, self.ovector))
+    def createIOXFile(self):
 
-    #     # wire i/o
-    #     tb.write('// ---\n')
-    #     for io in self.vectors['I'] + self.vectors['O']:
-    #         name = io[0]
-    #         position = io[1]
-    #         width = io[2]
-    #         if width == 1:
-    #             tb.write('wire {};\n'.format(name))
-    #         else:
-    #             tb.write('wire [{}:{}] {};\n'.format(width-1, 0, name))
-    #     for ee in self.vectors['E']:
-    #         name = ee[0]
-    #         position = ee[1]
-    #         width = ee[2]
-    #         if width == 1:
-    #             tb.write('reg {};\n'.format(name))
-    #         else:
-    #             tb.write('reg [{}:{}] {};\n'.format(width-1, 0, name))
-    #     if self.CLK or self.RST:
-    #         tb.write('// ---\n')
-    #     if self.CLK != None:
-    #         tb.write('reg {};\n'.format(self.CLK))
-    #     if self.RST != None:
-    #         tb.write('reg {};\n'.format(self.RST))
+        """ Input/Output/Exclude file. """
 
-    #     # instantiate module
-    #     tb.write('// ---\n')
-    #     tb.write('{} {} (\n'.format(self.design, self.sdfstrip.split('/')[-1]))
-    #     ports = ''
-    #     if self.CLK != None:
-    #         ports += '  .{}({}),\n'.format(self.CLK, self.CLK)
-    #     if self.RST != None:
-    #         ports += '  .{}({}),\n'.format(self.RST, self.RST)
-    #     for i in self.vectors['I']:
-    #         i = i[0]
-    #         ports += '  .{}({}),\n'.format(i, i)
-    #     for o in self.vectors['O']:
-    #         o = o[0]
-    #         ports += '  .{}({}),\n'.format(o, o)
-    #     for e in self.vectors['E']:
-    #         e = e[0]
-    #         ports += '  .{}({}),\n'.format(e, e)
-    #     ports = ports[:-2] + '\n);\n'
-    #     tb.write(ports)
+        ioxfile = join(self.root, self.iox)
+        if not self.force:
+            if isfile(ioxfile):
+                answer = input('IOX file already exists. Do you want to overwrite it? [yes/no] ')
+                if answer != 'yes':
+                    print('Skipped IOX file creation.')
+                    return None
 
-    #     # wire inputs
-    #     tb.write('// ---\n')
-    #     for i in self.vectors['I']:
-    #         name = i[0]
-    #         position = i[1]
-    #         width = i[2]
-    #         if width == 1:
-    #             if self.N_I_BITS == 1:
-    #                 tb.write('assign {} = {};\n'.format(name, self.ivector))
-    #                 break
-    #             else:
-    #                 tb.write('assign {} = {}[{}];\n'.format(name, self.ivector, position))
-    #         else:
-    #             if self.N_I_BITS == 1:
-    #                 raise Tbgen('This should not happen.')
-    #             else:
-    #                 tb.write('assign {} = {}[{}:{}];\n'.format( \
-    #                     name, self.ivector, position, position - width + 1))
-    #     tb.write('// ---\n')
+        self.createFile(ioxfile, '# ')
 
-    #     for o in self.vectors['O']:
-    #         name = o[0]
-    #         position = o[1]
-    #         width = o[2]
-    #         if width == 1:
-    #             if self.N_O_BITS == 1:
-    #                 tb.write('assign {} = {};\n'.format(self.ovector, name))
-    #             else:
-    #                 tb.write('assign {}[{}] = {};\n'.format(self.ovector, position, name))
-    #         else:
-    #             if self.N_O_BITS == 1:
-    #                 raise Tbgen('This should not happen.')
-    #             else:
-    #                 tb.write('assign {}[{}:{}] = {};\n'.format( \
-    #                     self.ovector, position, position - width + 1, name))
-    #     # target as specified in the configuration file
-    #     tb.write('assign {} = {};\n'.format(self.tvector, self.tgt))
-    #     tb.write('// ---\n')
-    #     # driving signals
-    #     if self.CLK != None:
-    #         tb.write('always #(HTCLK) {} = ~ {};\n'.format(self.CLK, self.CLK))
-    #     tb.write('always #(HPERIOD) {} = ~ {};\n'.format('SCLK', 'SCLK'))
-
-    #     # initial
-    #     tb.write('// --- read initial entries\n')
-    #     tb.write('initial begin\n')
-    #     if self.ivbits: 
-    #         tb.write('  ivfile = $fopen(`IVFILE, "rb");\n')     
-    #         tb.write('  err = $fread({}, ivfile);\n'.format(self.ivector))
-    #     if self.kvbits: 
-    #         tb.write('  kvfile = $fopen(`KVFILE, "rb");\n')     
-    #         tb.write('  err = $fread({}, ivfile);\n'.format(self.kvector))
-    #     if self.rvbits: 
-    #         tb.write('  rvfile = $fopen(`RVFILE, "rb");\n')     
-    #         tb.write('  err = $fread({}, ivfile);\n'.format(self.rvector))
-
-    #     tb.write('  SCLK = 1\'b1;\n')
-    #     if self.CLK != None:
-    #         tb.write('  {} = 1\'b1;\n'.format(self.CLK));
-    #     tb.write('  {} = 0;\n'.format(self.tr))
-    #     # if there is a RST signal use one PERIOD time to properly reset the circuit
-    #     # 1*TCLK would do just fine as well
-    #     if self.RST != None:
-    #         tb.write('  {} = 1\'b0;\n  #(PERIOD) {} = 1\'b1;\n'.format(self.RST, self.RST));
-    #     # another PERIOD for the initial state to propagatet properly, then start the high trigger
-    #     tb.write('  #(PERIOD) {} = 1\'b1;\n'.format(self.tr))
-    #     tb.write('end\n')
-
-    #     # frame counting and the termination of the testbench
-    #     tb.write('// --- read all entries ---\n')
-    #     tb.write('always @(posedge SCLK) begin\n')
-    #     tb.write('  if (FRAME_CNT >= N_FRAMES) begin\n')
-    #     tb.write('    {} = 0;\n'.format(self.tr))
-    #     tb.write('    $display("Finished %d frames for ID: %s", FRAME_CNT, "{}");\n'.format(self.id))
-    #     tb.write('    $finish;\n')
-    #     tb.write('  end\n')
-
-    #     tb.write('  if ({}) begin \n'.format(self.tr))
-    #     tb.write('    FRAME_CNT = FRAME_CNT + 1;\n')
-    #     tb.write('    err = $fread({}, ivfile);\n'.format(self.ivector))
-    #     tb.write('  end\n')
-    #     tb.write('end\n')
-
-    #     # wrap up
-    #     tb.write('// ---\n')
-    #     tb.write('endmodule\n')
-    #     tb.close()
-
-    # def createIOXFile(self):
-
-    #     """ Input/Output/Exclude file. """
-    #     if not self.force:
-    #         if isfile(self.iox):
-    #             answer = input('IOX file already exists. Do you want to overwrite it? [yes/no] ')
-    #             if answer != 'yes':
-    #                 print('Skipped IOX file creation.')
-    #                 return None
-
-    #     self.createFile(self.iox, '# ')
-    #     fp = open(self.iox, 'a')
+        fp = open(self.iox, 'a')
 
     #     for elem in self.vectors['I']:
     #         fp.write('FI {} {}/{}\n'.format(elem[2], self.sdfstrip, elem[0]))
