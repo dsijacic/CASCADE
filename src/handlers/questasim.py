@@ -32,7 +32,7 @@ class QuestaSim(Handler):
         self.handle = 'vsim'
         self.help = 'MentorGraphics QuestaSim (ModelSim) handler.'
         self.args = [
-            'stage', ['<stage>'], {
+            'stage', ['<vsimstage>'], {
                 'help': 'Stage in the design flow, a separate directory will be created.',
                 'choices': ["rtl", "zero", "delta", "fanout", "gln", "par"]
             },
@@ -43,8 +43,8 @@ class QuestaSim(Handler):
                 'help' : 'Use -sdfnoerror in modelsim simulation.',
                 'action': 'store_true'
             },
-            '-novopt', {
-                'help' : 'Use -novopt in modelsim simulation.',
+            '-novopt_off', {
+                'help' : 'Disable -novopt in modelsim simulation.',
                 'action': 'store_true'
             },
             '-noglitch', {
@@ -55,15 +55,15 @@ class QuestaSim(Handler):
                 'help': 'Name of the top level design.',
                 'default': None
             },
-            '-tcl', ['vsim:tcl:<stage>'], {
+            '-tcl', ['vsim:tcl:<vsimstage>'], {
                 'help': 'Output TCL file.',
                 'default': None
             },
-            '-vcd', ['vsim:vcd:<stage>'], {
+            '-vcd', ['vsim:vcd:<vsimstage>'], {
                 'help': 'Output VCD file.',
                 'default': None
             },
-            '-src', ['design:sources:<stage>'], {
+            '-src', ['design:sources:<vsimstage>'], {
                 'help': 'Design sources.',
                 'default': None,
                 'nargs' : '+'
@@ -76,7 +76,7 @@ class QuestaSim(Handler):
                 'help': 'Testbench module name.',
                 'default': None
             },
-            '-sdf', ['simulation:sdf:timing:<stage>'], {
+            '-sdf', ['simulation:sdf:timing:<vsimstage>'], {
                 'help': 'SDF file.',
                 'default': None
             },
@@ -141,6 +141,9 @@ class QuestaSim(Handler):
             '-exe', {
                 'help': 'Execute the generated script.',
                 'action': 'store_true'
+            },
+            '-rst', ['design:rst'], {
+                'help': 'Reset signal.',
             },
             '-rstdelay', ['test:rstdelay'], {
                 'help': 'Keep circuit in reset state.',
@@ -247,9 +250,10 @@ class QuestaSim(Handler):
         fp.write('\\\n  -gTCLK={}'.format(self.tclk))               # see tbgen, these generics have fixed names
         fp.write('\\\n  -gPERIOD={}'.format(period))                # see tbgen, these generics have fixed names
         fp.write('\\\n  -gN_FRAMES={}'.format(self.nframes))        # see tbgen, these generics have fixed names
-        fp.write('\\\n  -gRST_DELAY={}'.format(self.rstdelay))      # see tbgen, these generics have fixed names
+        if self.rst:
+            fp.write('\\\n  -gRST_DELAY={}'.format(self.rstdelay))      # see tbgen, these generics have fixed names
         fp.write('\\\n  -gINIT_DELAY={}'.format(self.initdelay))    # see tbgen, these generics have fixed names
-        if self.novopt:
+        if not self.novopt_off:
             fp.write('\\\n  -novopt')
         if self.noglitch:
             fp.write('\\\n  -noglitch')

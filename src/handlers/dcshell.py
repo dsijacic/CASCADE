@@ -20,7 +20,7 @@
 #> =============================================================================
 
 from handler import Handler, HandlerError
-from os.path import join
+from os.path import join, isfile
 import re
 
 class DcShell(Handler):
@@ -104,6 +104,9 @@ class DcShell(Handler):
         self.prepareFile(self.sdf)
         self.prepareFile(self.spef)
 
+        if isfile(self.tcl):
+            raise HandlerError('Synthesis script already exists. It may contain many manual modifications. Remove manually to continue.')
+
         session_path = self.createTclScript(self.tcl, root)
         # print('var: session_path -> {}'.format(session_path))
 
@@ -130,7 +133,7 @@ class DcShell(Handler):
         target_library = self.lib['liberty']['ccs']['db'][self.corner]
         fp.write('set target_library $lib_path/{}\n'.format(target_library))
         fp.write('set link_library $target_library\n')
-        fp.write('define_design_lib WORK -path $root/WORK\n')
+        fp.write('define_design_lib WORK -path ./WORK\n')
         for f in self.src:
             if re.fullmatch('(.*)\.v', f):  
                 fp.write('analyze -format verilog $root/{}\n'.format(f))
@@ -152,12 +155,12 @@ class DcShell(Handler):
         fp.write('# set_load [expr <FANOUT> * [load_of $lib_name/<LOADING_CELL>/<LOADING_PIN>]] [all_outputs]\n')
         fp.write('\n')
 
-        fp.write('# clock signal\n')
+        fp.write('# clock signal - set this manually!\n')
         if self.clk:
-            fp.write('create_clock -name {} -period {} {}'.format(self.clk, 111, self.clk))
+            fp.write('# create_clock -name {} -period {} {}'.format(self.clk, 111, self.clk))
             fp.write('# set_fix_hold [get_clocks {}]\n'.format(self.clk))
             fp.write('# set_clock_uncertainty {} {}\n'.format(1.11, self.clk))
-            fp.write('set_dont_touch_network [get_clocks {}]\n'.format(self.clk))
+            fp.write('# set_dont_touch_network [get_clocks {}]\n'.format(self.clk))
         else:
             fp.write('# none')
         fp.write('\n')
@@ -184,7 +187,7 @@ class DcShell(Handler):
         fp.write('\n')
         
         fp.write('ungroup -all -flatten\n')
-        fp.write('change_names -hierarchy -rules verilog\n')
+        fp.write('change_names -hierarchy -rules verilog -simple_names\n')
         fp.write('write -format verilog -hierarchy -o $root/{}\n'.format(self.netlist))
         fp.write('\n')
 
@@ -193,6 +196,8 @@ class DcShell(Handler):
         fp.write('write_sdf $root/{}\n'.format(self.sdf))
         fp.write('write_sdc $root/{} -nosplit\n'.format(self.sdc))
         fp.write('write_parasitics -format reduced -output $root/{}\n'.format(self.spef))
+        fp.write('write_parasitics -script -format reduced -output $root/{}.tcl\n'.format(self.spef))
+
         fp.write('report_design  >  $root/{}\n'.format(self.rpt))
         fp.write('report_qor     >> $root/{}\n'.format(self.rpt))
         fp.write('report_cell    >> $root/{}\n'.format(self.rpt))

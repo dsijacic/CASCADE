@@ -1,0 +1,37 @@
+CC=gcc
+FLAGS=-O3
+
+INCL=-I./../vcd/ -I./../pff/ -I./../../include
+LINK=-L./../vcd/obj -L./../pff/obj
+
+OBJ=\
+	vcd2pff.o
+
+obj: *.c *.h
+	mkdir -p obj
+	make $(OBJ)
+	cp *.o obj
+
+%.o: %.c *.h
+	$(CC) $(CFLAGS) $(INCL) -o $@ -c -fpic  $<
+
+bin: *.o
+	mkdir -p bin
+	$(CC) $(CFLAGS) $(INCL) $(LINK) -o vcd2pff main.c \
+	$(OBJ) \
+	../vcd/obj/VcdNode.o \
+	../vcd/obj/VcdNodeVector.o \
+	../pff/obj/frame.o \
+	../pff/obj/pff_wr.o 
+	mv vcd2pff bin
+
+test:
+	bin/vcd2pff ../../../dev/ti3and2/questasim/gln/and2-16256-1ps.vcd ../../../dev/ti3and2/sca/and2.iox test/and2-16256-1ps.pff -p 800 -u -t /and2_tb/TR
+
+val:
+	valgrind bin/vcd2pff ../../../dev/ti3and2/questasim/gln/and2-16256-1ps.vcd ../../../dev/ti3and2/sca/and2.iox test/and2-16256-1ps.pff -p 800 -u -t /and2_tb/TR
+	
+clean:
+	rm -rf *.dSYM *.o
+
+.PHONY: clean test obj

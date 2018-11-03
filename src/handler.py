@@ -72,6 +72,7 @@ class Parameter(Option):
             mapping - mapping to configuration file if one exists (None for <switches>)
             updated - True if the value has been updated from CLI
         """
+        # print('var: self.cfgmap -> {}'.format(self.cfgmap))
         if IS_SWITCH_RE.match(self.cfgmap):
             return None, None
         # elif self.value != self.default:
@@ -81,9 +82,11 @@ class Parameter(Option):
             passed"""
             mapping = self.cfgmap
             while CONTAINS_SWITCH_RE.match(mapping):
+                # print('var: mapping -> {}'.format(mapping))
                 switch = re.search(SWITCH_PATTERN, mapping).group(0)
                 for param in Parameter.COLLECTION:
                     if param.cfgmap == switch:
+                        # print(switch, param.value)
                         mapping = mapping.replace(switch, param.value)
                         break
             updated = False
@@ -168,7 +171,10 @@ class Handler(object):
         parametersThatNeedToBeReadFromConfig = []
         parametersThatWereUpdatedFromCLI = []
         for handle, param in self.paramCollection.items():
+            # print(handle, param)
             mapping, updated = param.getMapping()
+            # print(mapping, updated)
+            # print('---')
             if mapping:
                 if updated:
                     parametersThatWereUpdatedFromCLI.append((mapping, param.value))
@@ -179,7 +185,7 @@ class Handler(object):
 
     def getTime(timeStr):
         if not re.match('(\d*)[pnum]s', timeStr):
-            raise HandlerError('Improperly formatted time value "{}" found.'.format(timeStr))
+            raise HandlerError('Improperly formatted time value "{}" found in the configuration file.'.format(timeStr))
         time2float = {
             'ps' : 1e-12,
             'ns' : 1e-9,

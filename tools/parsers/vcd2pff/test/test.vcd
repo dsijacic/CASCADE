@@ -1,0 +1,93 @@
+$date
+    Thu May  4 16:37:03 2017
+$end
+$version
+    ModelSim Version 6.6d
+$end
+$timescale
+    1ps
+$end
+$scope module mux21_tb $end
+$scope module dut $end
+$var wire 1 ! a $end
+$var wire 1 " b $end
+$var wire 1 # s $end
+$var wire 1 $ m $end
+$var wire 1 % n4 $end
+$var wire 1 & n5 $end
+$var wire 1 ' n6 $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+#0
+0!
+0"
+0#
+x$
+x%
+x&
+x'
+0#
+0"
+0!
+#23
+1'
+#31
+0%
+#32
+0&
+#84
+0$
+#500
+1!
+#1000
+1"
+#1035
+1%
+#1063
+1$
+#1500
+1#
+0!
+#1521
+0'
+#1556
+0%
+#1602
+0$
+#2000
+0#
+#2023
+1'
+#2062
+1%
+#2090
+1$
+#2500
+1#
+1!
+#2521
+0'
+#2538
+1&
+#2556
+0%
+#3000
+0"
+#3500
+0!
+#3532
+0&
+#3584
+0$
+#4000
+1!
+#4035
+1&
+#4064
+1$
+#4500
+1"
+#5000
+0#
+0!

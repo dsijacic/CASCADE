@@ -20,6 +20,7 @@
 #> =============================================================================
 
 from generators.lsimgen import LogicSimGenerator
+from tqdm import tqdm
 
 class EDPCGen(LogicSimGenerator):
 
@@ -46,14 +47,11 @@ class EDPCGen(LogicSimGenerator):
 
         data = [0] * (nFrames + 1)
 
-        i = 0
-        while i < initValue:
+        for i in range(initValue):
             data[0] = self.clockEdpc()
-            i += 1
-        i = 0
-        while i < nFrames:
+
+        for i in tqdm(range(nFrames)):
             data[i+1] = self.clockEdpc()
-            i += 1
 
         return data, nBytes
 

@@ -1,0 +1,13 @@
+# comment
+# inputs MSB .. LSB
+FI 1 /mux21_tb/dut/s
+FI 1 /mux21_tb/dut/b
+FI 1 /mux21_tb/dut/a
+# inputs MSB .. LSB
+FO  1 /mux21_tb/dut/m
+# exclude from power, order is not importatnt
+# coincides with frame inputs in these cases, but it is nice to have this degree of freedom
+EX 1 /mux21_tb/dut/s
+EX 1 /mux21_tb/dut/b
+EX 1 /mux21_tb/dut/a
+#must end with a non-empty line

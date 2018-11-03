@@ -2,14 +2,57 @@
     "nan45": {
         "TOP": "/esat/herkenrode1/scratch/dsijacic/StdCell/NangateOpenCellLibrary_PDKv1_3_v2010_12",
         "backend": {
+            "buffers": [
+                "CLKBUF_X3",
+                "CLKBUF_X2",
+                "CLKBUF_X1",
+                "BUF_X32",
+                "BUF_X16",
+                "BUF_X8",
+                "BUF_X4",
+                "BUF_X2",
+                "BUF_X1"
+            ],
+            "captables": "captables/NCSU_FreePDK_45nm.capTbl",
+            "fillers": [
+                "FILLCELL_X8",
+                "FILLCELL_X4",
+                "FILLCELL_X32",
+                "FILLCELL_X2",
+                "FILLCELL_X16",
+                "FILLCELL_X1"
+            ],
             "gds_files": [
                 "Back_End/gds/NangateOpenCellLibrary.gds"
             ],
+            "gnd": "VSS",
             "lef_files": [
-                "Back_End/lef/NangateOpenCellLibrary.lef",
-                "Back_End/lef/NangateOpenCellLibrary.tech.lef",
-                "Back_End/lef/NangateOpenCellLibrary.macro.lef"
-            ]
+                "Back_End/lef/NangateOpenCellLibrary.lef"
+            ],
+            "mmmc": "${lib:name}.view",
+            "processNode": 45,
+            "pvt": {
+                "max": [
+                    "1.00",
+                    "0.95",
+                    "125.00"
+                ],
+                "min": [
+                    "1.00",
+                    "1.25",
+                    "0.00"
+                ],
+                "typ": [
+                    "1.00",
+                    "1.10",
+                    "25.00"
+                ]
+            },
+            "pwr": "VDD",
+            "sites": [
+                "FreePDK45_38x28_10R_NP_162NW_34O"
+            ],
+            "topMetalLayer": "metal10"
         },
         "corners": [
             "min",
@@ -41,5 +84,44 @@
         "transistors": [
             "PredictiveModels.l"
         ]
+    },
+    "tsmc180": {
+        "TOP": "/users/micas/micas/design/tsmc018/stclib_3D3V/9-track/tcb018g3d3_280a_FE/TSMCHOME/digital",
+        "backend": {
+            "gds_files": [
+                "Back_End/gds/NangateOpenCellLibrary.gds"
+            ],
+            "lef_files": [
+                "Back_End/lef/tcb018g3d3_280a/lef/tcb018g3d3_4lm.lef"
+            ]
+        },
+        "corners": [
+            "min",
+            "typ",
+            "max"
+        ],
+        "functional": {
+            "verilog": [
+                "Front_End/verilog/tcb018g3d3_280a/tcb018g3d3.v"
+            ]
+        },
+        "handle": "tsmc180",
+        "liberty": {
+            "ccs": {
+                "db": {
+                    "max": "Front_End/timing_power_noise/CCS/tcb018g3d3_280a/tcb018g3d3wc_ccs.db",
+                    "min": "Front_End/timing_power_noise/CCS/tcb018g3d3_280a/tcb018g3d3bc_ccs.db",
+                    "typ": "Front_End/timing_power_noise/CCS/tcb018g3d3_280a/tcb018g3d3tc_ccs.db"
+                },
+                "lib": {
+                    "max": "Front_End/timing_power_noise/CCS/tcb018g3d3_280a/tcb018g3d3wc_ccs.lib",
+                    "min": "Front_End/timing_power_noise/CCS/tcb018g3d3_280a/tcb018g3d3bc_ccs.lib",
+                    "typ": "Front_End/timing_power_noise/CCS/tcb018g3d3_280a/tcb018g3d3tc_ccs.lib"
+                }
+            }
+        },
+        "name": "NangateOpenCellLibrary",
+        "parparam": "par.json",
+        "transistors": null
     }
 }

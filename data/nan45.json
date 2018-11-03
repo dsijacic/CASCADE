@@ -1,0 +1,50 @@
+{
+    "TOP" : "<path/to/library>",
+    "handle" : "nan45",
+    "name" : "NangateOpenCellLibrary",
+    "corners" : ["min", "typ", "max"],
+    "liberty" : {
+        "ccs" : {
+            "db" : {
+                "max" : "Front_End/Liberty/CCS/NangateOpenCellLibrary_slow_ccs.db",
+                "typ" : "Front_End/Liberty/CCS/NangateOpenCellLibrary_typical_ccs.db",
+                "min" : "Front_End/Liberty/CCS/NangateOpenCellLibrary_fast_ccs.db"
+            },
+            "lib" : {
+                "max" : "Front_End/Liberty/CCS/NangateOpenCellLibrary_slow_ccs.lib",
+                "typ" : "Front_End/Liberty/CCS/NangateOpenCellLibrary_typical_ccs.lib",
+                "min" : "Front_End/Liberty/CCS/NangateOpenCellLibrary_fast_ccs.lib"
+            }
+        }
+    }, 
+    "functional" : {
+        "verilog" : ["Front_End/Verilog/NangateOpenCellLibrary.v"]
+    },
+    "backend" : {
+        "processNode" : 45, 
+        "buffers" : ["CLKBUF_X3", "CLKBUF_X2", "CLKBUF_X1", "BUF_X32", "BUF_X16", "BUF_X8", "BUF_X4", "BUF_X2", "BUF_X1"],
+        "fillers" : ["FILLCELL_X8",  "FILLCELL_X4",  "FILLCELL_X32",  "FILLCELL_X2",  "FILLCELL_X16",  "FILLCELL_X1"],
+        "pwr" : "VDD",
+        "gnd" : "VSS",
+        "topMetalLayer" : "metal10",
+        "sites" : [
+            "FreePDK45_38x28_10R_NP_162NW_34O"
+        ], 
+        "lef_files" : [
+            "Back_End/lef/NangateOpenCellLibrary.lef"
+        ],
+        "gds_files" : [
+            "Back_End/gds/NangateOpenCellLibrary.gds"
+        ],
+        "mmmc" : "${lib:name}.view",
+        "captables" : "captables/NCSU_FreePDK_45nm.capTbl",
+        "pvt" : {
+            "max" : ["1.00", "0.95", "125.00"],
+            "min" : ["1.00", "1.25", "0.00"],
+            "typ" : ["1.00", "1.10", "25.00"]
+        }
+    },
+    "transistors" : ["PredictiveModels.l"],
+    "parparam" : "par.json"
+}
+

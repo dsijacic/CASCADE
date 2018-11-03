@@ -31,22 +31,18 @@ class Factory():
     allHandlers = []
 
     def create(cli):
-        Factory.allHandlers.append(
-            QuestaSim()
-        )
-        Factory.allHandlers.append(
-            TestbenchGenerator(
+        Factory.allHandlers.append(TestbenchGenerator(
                 EDPCGen(), 
                 DevRandGen(), 
                 DevURandGen(),
-                Fix2AllGen()
-            )
-        )
-        Factory.allHandlers.append(
-            DcShell()
-        )
-        ...
-
+                Fix2AllGen(),
+                WddlGen(),
+        ))
+        Factory.allHandlers.append(DcShell())
+        Factory.allHandlers.append(Innovus())
+        Factory.allHandlers.append(QuestaSim())
+        Factory.allHandlers.append(PrimeTime())
+        Factory.allHandlers.append(Vcd2Pff())
         for h in Factory.allHandlers:
             cli.addCommand(h.handle, h.help, h.args)
 

@@ -86,7 +86,7 @@ class LibraryManager(object):
                 raise IOError('Can not find the library configuration file at {}'.format(libcfg))
             with open(libcfg, 'r') as f:
                 newlib = load(f)
-            newlib['TOP'] = osplit(libcfg)[0]
+            #newlib['TOP'] = osplit(libcfg)[0]
 
             print('TODO: Control/Enforce which fields are required/necessary.')
 

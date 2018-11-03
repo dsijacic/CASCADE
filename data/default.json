@@ -83,21 +83,21 @@
         "out" : {
             "gln" : "primetime/gln/${test:id}-${simulation:nframes}-${simulation:precision}.out",
             "par" : "primetime/par/${test:id}-${simulation:nframes}-${simulation:precision}.out",
-            "zero" : "primetime/zero/${test:id}-${simulation:nframes}-${simulation:precision}.out",
-            "delta" : "primetime/delta/${test:id}-${simulation:nframes}.out",
-            "fanout" : "primetime/fanout/${test:id}-${simulation:nframes}-${simulation:precision}.out"
+            "zero" : null,
+            "delta" : null,
+            "fanout" : null
         } ,
         "tcl" : {
-            "gln" : "primetime/gln/${test:id}-${simulation:nframes}-${simulation:precision}",
-            "par" : "primetime/par/${test:id}-${simulation:nframes}-${simulation:precision}",
-            "zero" : "primetime/zero/${test:id}-${simulation:nframes}-${simulation:precision}",
-            "delta" : "primetime/delta/${test:id}-${simulation:nframes}",
-            "fanout" : "primetime/fanout/${test:id}-${simulation:nframes}-${simulation:precision}"
+            "gln" : "primetime/gln/${test:id}-${simulation:nframes}-${simulation:precision}.tcl",
+            "par" : "primetime/par/${test:id}-${simulation:nframes}-${simulation:precision}.tcl",
+            "zero" : null,
+            "delta" : null,
+            "fanout" : null
         }
     },
     "synthesis" : {
         "tcl" : "net/${design:corner}/syn-${design:name}-${lib_id}.tcl",
-        "signifcant_digits" : 3,
+        "significant_digits" : 3,
         "netlist" : "net/${design:corner}/${design:name}-${lib_id}.v",
         "sdf" : "net/${design:corner}/${design:name}-${lib_id}.sdf",
         "sdc" : "net/${design:corner}/${design:name}-${lib_id}.sdc",
@@ -105,5 +105,29 @@
         "rpt" : "net/${design:corner}/${design:name}-${lib_id}.rpt"
     },
     "lib_id" : "nan45",
-    "lib" : null
+    "lib" : null,
+    "par": {
+        "floorPlan": {
+            "aspectRatio": 1.0,
+            "density": 0.7,
+            "fromEdge": 3.0
+        },
+        "mmmc": "par/${design:corner}/${design:name}-${lib_id}.view",
+        "netlist": "par/cmos/${design:corner}/${design:name}-${lib_id}.v",
+        "pwrRing": {
+            "offset": 0.095,
+            "spacing": 0.5,
+            "width": 0.8
+        },
+        "rpt": "par/cmos/${design:corner}/${design:name}-${test:id}.rpt",
+        "scripts": "par/cmos/${design:corner}/scripts",
+        "sdc": "par/cmos/${design:corner}/${design:name}-${lib_id}.sdc",
+        "sdf": "par/cmos/${design:corner}/${design:name}-${test:id}.sdf",
+        "signifcant_digits": 6,
+        "site": "FreePDK45_38x28_10R_NP_162NW_34O",
+        "spef": "par/cmos/${design:corner}/${design:name}-${test:id}.spef"
+    },
+    "spice" : {
+        
+    }
 }

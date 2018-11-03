@@ -1,4 +1,3 @@
-#!/volume1/scratch/dsijacic/.bin/anaconda3-501/bin/python
 #> =============================================================================
 #>                     This confidential and proprietary code                   
 #>                       may be used only as authorized by a                    
@@ -78,8 +77,8 @@ else:
         try:
             message, update = handler.process(sesmgr.getSessionRoot())
 
-        except NotImplementedError as E:
-        # except Exception as E:
+        # except NotImplementedError as E:
+        except Exception as E:
             print('Error:', E)
             message = 'CASCADE encountered an error while executing "{}".'.format(cas.command)
         finally:

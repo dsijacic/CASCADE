@@ -59,7 +59,7 @@ class TestbenchGenerator(Handler):
         self.args = [
             'type', {
                 'help': 'Type of frame sequence.',
-                'choices': 'edpc devr devu f2all'.split()
+                'choices': 'edpc devr devu f2all wddl'.split()
             },
             '--force', {
                 'help' : 'Force generation of new files.',
@@ -71,17 +71,8 @@ class TestbenchGenerator(Handler):
             '-tb', ['test:tbfile'], {
                 'help': 'Output testbench file.',
             },
-            '-tbmodule', ['test:tbmodule'], {
-                'help': 'Testbench module name.',
-            },
             '-iox', ['analysis:portmap'], {
                 'help': 'Output testbench file.',
-            },
-            '-tr', ['test:trigger'], {
-                'help': 'Trigger set to high when SCA should be performed.',
-            },
-            '-tgt', ['test:target'], {
-                'help': 'Target of the SCA evaluation.',
             },
             '-src', ['design:sources:rtl'], {
                 'help' : 'CASCADE anotated top module file for active design.',
@@ -111,6 +102,15 @@ class TestbenchGenerator(Handler):
             '-rvbits', ['test:rvbits'], {
                 'help': 'External randomness input.',
                 'type': int
+            },
+            '-tbmodule', ['test:tbmodule'], {
+                'help': 'Trigger set to high when SCA should be performed.',
+            },
+            '-tr', ['test:trigger'], {
+                'help': 'Trigger set to high when SCA should be performed.',
+            },
+            '-tgt', ['test:target'], {
+                'help': 'Target signal, not the name but the value.',
             },
             '-tgtbits', ['test:tgtbits'], {
                 'help': 'SCA target bits.',
@@ -154,14 +154,12 @@ class TestbenchGenerator(Handler):
             },
             '-bs', ['analysis:batchsize'], {
                 'help': 'Simulation/Analysis batch size. If None (null) everything is processed in one batch.',
-                # 'type' : int
             },
             '-sdfstrip', ['simulation:sdf:strip'], {
                 'help': 'Path to your design (strip testbench).'
             },
             '-nshares', ['design:nshares'], {
                 'help': 'Number of shares.',
-                # 'type' : int
             },
             '-rstdelay', ['test:rstdelay'], {
                 'help': 'Keep circuit in reset state.',
@@ -169,6 +167,10 @@ class TestbenchGenerator(Handler):
             '-initdelay', ['test:initdelay'], {
                 'help': 'Initial delay not including the reset.',
             },
+            '-hier_separator', {
+                'help': 'Hierarchy separator for VCD files.',
+                'default': '/'
+            }
         ]
         super(TestbenchGenerator, self).__init__(self.handle, self.help, self.args, generators)
 
@@ -177,6 +179,9 @@ class TestbenchGenerator(Handler):
         self.update = {}
         self.ports = {}
         self.root = root
+
+        tbfile = join(self.root, self.tb)
+
         self.parseVerilog()
         self.createInputVectors()
         self.createVerilogTestbench()
@@ -297,6 +302,7 @@ class TestbenchGenerator(Handler):
 
         if self.ivbits: 
             ivfile = join(self.root, self.ivfile)
+            self.prepareFile(ivfile)
             self.getGenerator(self.type, self.ivbits, self.nframes, self.bs, ivfile)
 
         if self.kvbits: 
@@ -382,7 +388,8 @@ class TestbenchGenerator(Handler):
         # testbench wires
         tb.write('\n')
         for port in [self.clk, self.rst]:
-            tb.write('reg {};\n'.format(port))
+            if port:
+                tb.write('reg {};\n'.format(port))
         for port in self.ports['key'] + self.ports['exc'] + self.ports['rnd'] + self.ports['fin'] + self.ports['fot']:
             pstr = 'wire '
             if port.width > 1:
@@ -496,7 +503,10 @@ class TestbenchGenerator(Handler):
         tb.write('\n')
         tb.write('// read all entries and finish\n')
         tb.write('always @(posedge SCLK) begin\n')
-        tb.write('  if (FRAME_CNT >= N_FRAMES) begin\n')
+        if self.type == 'wddl':
+            tb.write('  if (FRAME_CNT >= N_FRAMES + 1) begin\n')
+        else:
+            tb.write('  if (FRAME_CNT >= N_FRAMES) begin\n')
         tb.write('    {} = 0;\n'.format(self.tr))
         tb.write('    $display("Finished %d frames for ID: %s", FRAME_CNT, "{}");\n'.format(self.id))
         tb.write('    $finish;\n')
@@ -519,7 +529,7 @@ class TestbenchGenerator(Handler):
 
     def createIOXFile(self):
 
-        """ Input/Output/Exclude file. """
+        """ Input/Output/Exclude(Target) file. """
 
         ioxfile = join(self.root, self.iox)
         if not self.force:
@@ -533,21 +543,13 @@ class TestbenchGenerator(Handler):
 
         fp = open(self.iox, 'a')
 
-    #     for elem in self.vectors['I']:
-    #         fp.write('FI {} {}/{}\n'.format(elem[2], self.sdfstrip, elem[0]))
-    #     for elem in self.vectors['O']:
-    #         fp.write('FO {} {}/{}\n'.format(elem[2], self.sdfstrip, elem[0]))
-    #     for elem in self.vectors['C']:
-    #         fp.write('EX {} {}/{}\n'.format(elem[2], self.sdfstrip, elem[0]))
-    #     for elem in self.vectors['R']:
-    #         fp.write('EX {} {}/{}\n'.format(elem[2], self.sdfstrip, elem[0]))
-    #     for elem in self.vectors['E']:
-    #         fp.write('EX {} {}/{}\n'.format(elem[2], self.sdfstrip, elem[0]))
-    #     for elem in self.vectors['I']:
-    #         fp.write('EX {} {}/{}\n'.format(elem[2], self.sdfstrip, elem[0]))
-    #     # fp.write('EX {} /{}/{}\n'.format(self.ovbits, self.tbmodule, self.ovector))
-    #     # fp.write('EX 1 /{}/{}\n'.format(self.tbmodule, self.tr))
-    #     fp.write('EX 1 /{}/{}\n'.format(self.tbmodule, self.tgt))
-    #     fp.write('TR 1 /{}/{}\n'.format(self.tbmodule, self.tr))
-
-    #     fp.close()
+        for port in self.ports['fin']:
+            fp.write('fin {} {}{}{}\n'.format(port.width, self.sdfstrip, self.hier_separator, port.name))
+        for port in self.ports['fot']:
+            fp.write('fot {} {}{}{}\n'.format(port.width, self.sdfstrip, self.hier_separator, port.name))
+        for port in self.ports['fin'] + self.ports['rnd'] + self.ports['key'] + self.ports['exc']:
+            fp.write('exc {} {}{}{}\n'.format(port.width, self.sdfstrip, self.hier_separator, port.name))
+        fp.write('exc {} {}{}{}{}\n'.format(self.tgtbits, self.hier_separator, self.tbmodule, self.hier_separator, self.tvector))
+        fp.write('exc {} {}{}{}{}\n'.format(1, self.hier_separator, self.tbmodule, self.hier_separator, self.tr))
+        fp.write('tgt {} {}{}{}{}\n'.format(self.tgtbits, self.hier_separator, self.tbmodule, self.hier_separator, self.tvector))
+        fp.close()
